@@ -32,6 +32,8 @@ var JOB_BOARD_URLS = []string{
   "https://www.linkedin.com/jobs/search?keywords=%s&location=United States&geoId=103644278&f_JT=F&f_E=2&f_PP=102448103&f_TPR=&position=1&pageNum=0",
 } 
 
+const MAX_RETRIES int = 5
+
 type Job struct {
   JobTitle  string  `json:"job_title"`
   JobID     string  `json:"job_id"`
@@ -103,10 +105,9 @@ func main() {
   })
   
   user_agent_list := GetUserAgents()
-  // proxy_list := GenerateProxies()
 
   job_links := make([]string, 0, 50)
-  error_count := 0
+  
   c.OnResponse(func(r *colly.Response) {
     fmt.Println("Visited", r.Request.URL)
   })
@@ -124,7 +125,15 @@ func main() {
     // body := string(r.Body)
     fmt.Println("Error on request: ")
     fmt.Println(err)
-    error_count += 1
+    retries := r.Request.Ctx.GetAny("retries").(int)
+    if retries < MAX_RETRIES {
+      fmt.Println("Retrying request")
+      time.Sleep(30 * time.Second)
+      r.Request.Ctx.Put("retries", retries+1)
+      r.Request.Retry()
+    } else {
+      fmt.Println("Max retries reached")
+    }
     time.Sleep(30 * time.Second)
   })
 
@@ -134,6 +143,9 @@ func main() {
     // fmt.Println("Proxy: ", proxy)
     fmt.Println("User agent: ", user)
     r.Headers.Set("User-Agent", user)
+    if r.Ctx.GetAny("retries") == nil {
+      r.Ctx.Put("retries", 0)
+    }
     // if err != nil {
     //  fmt.Println("Error setting proxy")
     //  fmt.Println(err)
@@ -162,8 +174,6 @@ func main() {
   }
   
   fmt.Println("Total jobs found:", len(jobs))
-
-  fmt.Println("Total errors:", error_count, "out of", len(job_links), "links")
 
   WriteToCSV(jobs)
 }
