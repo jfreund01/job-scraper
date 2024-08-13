@@ -1,5 +1,4 @@
-
-package main
+package job_scraper
 
 import (
   "time";
@@ -17,20 +16,11 @@ import (
 
 const LINKEDIN_JOB_PREFIX string = "https://www.linkedin.com/jobs/view/"
 
-var job_search_terms = []string{
-  "Software Engineer",
-  "Simulation Engineer",
-  "Game Developer",
-  "Python",
-  "C++",
-  "C",
-  "C developer",
-  "Software Developer",
-}
-
 var JOB_BOARD_URLS = []string{ 
   "https://www.linkedin.com/jobs/search?keywords=%s&location=United States&geoId=103644278&f_JT=F&f_E=2&f_PP=102448103&f_TPR=&position=1&pageNum=0",
 } 
+
+var ActionFlag string
 
 const MAX_RETRIES int = 5
 
@@ -62,6 +52,25 @@ func WriteToCSV(jobs []Job) {
 func RandomString(string_list []string) string {
   randInt := rand.Intn(len(string_list))
   return string_list[randInt]
+}
+
+func GetKeywords() ([]string) {
+  file, err := os.Open("setup.cfg")
+  if err != nil {
+    log.Fatal(err)
+  }
+  defer file.Close()
+
+  var keywordList []string
+    
+  scanner := bufio.NewScanner(file)
+  for scanner.Scan() {
+    keywordList = append(keywordList, scanner.Text())
+  }
+
+  fmt.Println("Loaded", len(keywordList), "keywords")
+
+  return keywordList
 }
 
 func GetUserAgents() ([]string) {
@@ -98,15 +107,16 @@ func ParseJobLinks(link string) Job {
   return job
 }
 
-func main() {
+func ScrapeJobs() { 
   c := colly.NewCollector()
+
   c.WithTransport(&http.Transport{ 
     TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
   })
   
   user_agent_list := GetUserAgents()
-
   job_links := make([]string, 0, 50)
+  keywords := GetKeywords()
   
   c.OnResponse(func(r *colly.Response) {
     fmt.Println("Visited", r.Request.URL)
@@ -154,7 +164,7 @@ func main() {
     fmt.Println("Visiting : ", r.URL.String())
   })
 
-  for _, keyword := range job_search_terms {
+  for _, keyword := range keywords {
     fmt.Println("Searching for: ", keyword)
     url := fmt.Sprintf(JOB_BOARD_URLS[0], keyword)
     url = strings.Replace(url, " ", "%20", -1)
