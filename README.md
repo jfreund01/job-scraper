@@ -4,10 +4,13 @@ This is a simple job scraper that scrapes job positings from job board websites,
 
 ### Installation
 1. Install Go
+2. Install the Colly web scraping framework by running `go get -u github.com/gocolly/colly`
+3. Clone the repository
 
 ### Usage
-1. Clone the repository
-2. Run `go run job_scraper.go`
+1. Run the job scraper setup by running `go run main.go --action setup`
+2. Edit the `setup.cfg` file to specify the keywords you want to search for
+3. Run the job scraper by running `go run main.go --action scrape`
 
 ### Future improvements
 - [ ] Add support for more job boards
