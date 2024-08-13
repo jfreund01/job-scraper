@@ -16,7 +16,7 @@ This is a simple job scraper that scrapes job positings from job board websites,
 - [ ] Add support for more output destinations (e.g. database, cloud storage)
 
 ### Supported Job Boards
-- [x][LinkedIn](https://www.linkedin.com/)
+- [LinkedIn](https://www.linkedin.com/)
 
 ### Future Supported Job Boards
 - [ ] [Indeed](https://www.indeed.com/)
