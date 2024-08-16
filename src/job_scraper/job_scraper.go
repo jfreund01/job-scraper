@@ -4,6 +4,7 @@ import (
   "time";
   "encoding/csv";
   "os";
+  "os/exec";
   "log";
   "bufio";
   "strings";
@@ -28,6 +29,73 @@ type Job struct {
   JobTitle  string  `json:"job_title"`
   JobID     string  `json:"job_id"`
   JobLink   string  `json:"job_link"`
+}
+
+func switchVPN() {
+  cmd := exec.Command("openvpn", "--config", "conf.ovpn") 
+	// Get stdout and stderr pipes
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		fmt.Println("Error creating StdoutPipe:", err)
+		return
+	}
+
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		fmt.Println("Error creating StderrPipe:", err)
+		return
+	}
+
+	// Start the command
+	if err := cmd.Start(); err != nil {
+		fmt.Println("Error starting command:", err)
+		return
+	}
+
+	// Create a scanner to read the output line by line
+	scanner := bufio.NewScanner(stdout)
+	scannerErr := bufio.NewScanner(stderr)
+
+	connected := make(chan bool)
+
+	// Goroutine to monitor stdout for connection success
+	go func() {
+		for scanner.Scan() {
+			line := scanner.Text()
+			fmt.Println(line) // Optionally print each line
+
+			if strings.Contains(line, "Initialization Sequence Completed") {
+				connected <- true
+				return
+			}
+		}
+	}()
+
+	// Goroutine to monitor stderr for connection errors
+	go func() {
+		for scannerErr.Scan() {
+			line := scannerErr.Text()
+			fmt.Println(line) // Optionally print each line
+
+			if strings.Contains(line, "AUTH_FAILED") || strings.Contains(line, "Error") {
+				connected <- false
+				return
+			}
+		}
+	}()
+
+	// Wait for the connection or an error
+	select {
+	case success := <-connected:
+		if success {
+			fmt.Println("VPN Connected Successfully!")
+		} else {
+			fmt.Println("VPN Connection Failed.")
+		}
+	case <-time.After(30 * time.Second): // Timeout after 30 seconds
+		fmt.Println("Timeout waiting for VPN connection.")
+		cmd.Process.Kill()
+	}
 }
 
 func WriteToCSV(jobs []Job) {
@@ -138,8 +206,9 @@ func ScrapeJobs() {
     retries := r.Request.Ctx.GetAny("retries").(int)
     if retries < MAX_RETRIES {
       fmt.Println("Retrying request")
-      time.Sleep(30 * time.Second)
+      time.Sleep(3 * time.Second)
       r.Request.Ctx.Put("retries", retries+1)
+      //switchVPN()
       r.Request.Retry()
     } else {
       fmt.Println("Max retries reached")
